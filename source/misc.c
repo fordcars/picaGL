@@ -8,6 +8,65 @@ static GLint _GetScreenWidth()
 		return 320;
 }
 
+static void _vertex4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w)
+{
+	_picaFixedAttribute(x, y, z, w);
+	_picaFixedAttribute(pglState->clearColor.r, pglState->clearColor.g, pglState->clearColor.b, pglState->clearColor.a);
+	_picaFixedAttribute(pglState->currentTexCoord[0].s, pglState->currentTexCoord[0].t, 0, 0);
+
+	if(pglState->texUnitState[1])
+		_picaFixedAttribute(pglState->currentTexCoord[1].s, pglState->currentTexCoord[1].t, 0, 0);
+}
+
+void glClear(GLbitfield mask)
+{
+	uint32_t write_mask = 0;
+
+	if(mask & GL_COLOR_BUFFER_BIT)
+		write_mask |= GPU_WRITE_COLOR;
+	if(mask & GL_DEPTH_BUFFER_BIT)
+		write_mask |= GPU_WRITE_DEPTH;
+
+	_picaViewport(0, 0, 240, 400);
+	
+	_picaScissorTest(pglState->scissorState ? 0x3 : 0x0, pglState->scissorY, pglState->scissorX, pglState->scissorY + pglState->scissorHeight, pglState->scissorX + pglState->scissorWidth);
+
+	_picaDepthMap(0, 1.0, 0);
+	_picaLogicOp(GPU_LOGICOP_COPY);
+	_picaAlphaTest(false, GPU_ALWAYS, 0);
+	_picaDepthTestWriteMask(true, GPU_ALWAYS, write_mask);
+	_picaCullMode(GPU_CULL_NONE);
+
+	_picaTexUnitEnable(0x00);
+	_picaTextureEnvSet(0, &pglState->texenv[PGL_TEXENV_UNTEXTURED]);
+	_picaTextureEnvSet(1, &pglState->texenv[PGL_TEXENV_DUMMY]);
+
+	{
+		// Set projection matrix
+		matrix4x4 projectionMatrix;
+		matrix4x4_identity(&projectionMatrix);
+		_picaUniformFloat(GPU_VERTEX_SHADER, 0, (float*)&projectionMatrix, 4);
+	}
+
+	if(pglState->texUnitState[1])
+		_picaAttribBuffersFormat(0, 0XFFFF, 0x3210, 4);
+	else
+		_picaAttribBuffersFormat(0, 0XFFFF, 0x210, 3);
+
+	_picaImmediateBegin(GPU_TRIANGLE_STRIP);
+
+	_vertex4f(-1.0,  1.0, pglState->clearDepth, 1.0f);
+	_vertex4f(-1.0, -1.0, pglState->clearDepth, 1.0f);
+	_vertex4f( 1.0,  1.0, pglState->clearDepth, 1.0f);
+	_vertex4f( 1.0, -1.0, pglState->clearDepth, 1.0f);
+
+	_picaImmediateEnd();
+	pglState->changes = STATE_ALL_CHANGE;
+}
+
+// Note: this implementation would crash on real 3DS hardware when switching
+// to the "clear shader". Not sure why...
+#if 0
 void glClear(GLbitfield mask)
 {
 	shaderProgramUse(&pglState->clearShader);
@@ -49,6 +108,7 @@ void glClear(GLbitfield mask)
 
 	pglState->changes = STATE_ALL_CHANGE;
 }
+#endif
 
 void glClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 {
