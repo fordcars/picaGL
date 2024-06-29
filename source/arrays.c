@@ -220,7 +220,7 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 	uint8_t  bufferCount 			= 0;
 	uint16_t attributesFixedMask 	= 0x00;
 	uint64_t attributesFormat 		= 0x00;
-	uint64_t attributesPermutation  = 0x3210;
+	// uint64_t attributesPermutation  = 0x3210;
 
 	AttribPointer *vertexArray 	    = &pglState->vertexArrayPointer;
 	AttribPointer *colorArray 		= &pglState->colorArrayPointer;
@@ -308,7 +308,10 @@ void glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, 
 		_picaFixedAttribute(1, 1, 0, 0);
 	}
 
-	_picaAttribBuffersFormat(attributesFormat, attributesFixedMask, attributesPermutation, bufferCount);
+	// TODO: Understand why this change was necessary to have textures work
+	// properly for CMR on 3DS.
+	//_picaAttribBuffersFormat(attributesFormat, attributesFixedMask, attributesPermutation, bufferCount);
+	_picaAttribBuffersFormat(attributesFormat, 0XFFFF, 0x210, 3);
 
 	GPU_Primitive_t primitive_type;
 
