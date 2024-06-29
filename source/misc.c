@@ -12,10 +12,7 @@ static void _vertex4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w)
 {
 	_picaFixedAttribute(x, y, z, w);
 	_picaFixedAttribute(pglState->clearColor.r, pglState->clearColor.g, pglState->clearColor.b, pglState->clearColor.a);
-	_picaFixedAttribute(pglState->currentTexCoord[0].s, pglState->currentTexCoord[0].t, 0, 0);
-
-	if(pglState->texUnitState[1])
-		_picaFixedAttribute(pglState->currentTexCoord[1].s, pglState->currentTexCoord[1].t, 0, 0);
+	_picaFixedAttribute(0, 0, 0, 0);
 }
 
 void glClear(GLbitfield mask)
@@ -113,10 +110,10 @@ void glClear(GLbitfield mask)
 void glClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 {
 	//We're passing this as a uniform...
-	pglState->clearColor.a = red;
+	pglState->clearColor.r = red;
 	pglState->clearColor.g = green;
 	pglState->clearColor.b = blue;
-	pglState->clearColor.r = alpha;
+	pglState->clearColor.a = alpha;
 }
 
 void glColorMask(GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
