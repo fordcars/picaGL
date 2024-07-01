@@ -1,5 +1,29 @@
 #include "internal.h"
 
+GLenum _convert_blendfactor_to_gl(GPU_BLENDFACTOR factor) 
+{
+	switch(factor)
+	{
+		case GPU_ZERO: 						return GL_ZERO;
+		case GPU_ONE:  						return GL_ONE;
+		case GPU_SRC_COLOR: 				return GL_SRC_COLOR;
+		case GPU_ONE_MINUS_SRC_COLOR: 		return GL_ONE_MINUS_SRC_COLOR;
+		case GPU_DST_COLOR: 				return GL_DST_COLOR;
+		case GPU_ONE_MINUS_DST_COLOR: 		return GL_ONE_MINUS_DST_COLOR;
+		case GPU_SRC_ALPHA: 				return GL_SRC_ALPHA;
+		case GPU_ONE_MINUS_SRC_ALPHA: 		return GL_ONE_MINUS_SRC_ALPHA;
+		case GPU_DST_ALPHA: 				return GL_DST_ALPHA;
+		case GPU_ONE_MINUS_DST_ALPHA: 		return GL_ONE_MINUS_DST_ALPHA;
+		case GPU_SRC_ALPHA_SATURATE: 		return GL_SRC_ALPHA_SATURATE;
+		case GPU_CONSTANT_COLOR: 			return GL_CONSTANT_COLOR;
+		case GPU_ONE_MINUS_CONSTANT_COLOR: 	return GL_ONE_MINUS_CONSTANT_COLOR;
+		case GPU_CONSTANT_ALPHA: 			return GL_CONSTANT_ALPHA;
+		case GPU_ONE_MINUS_CONSTANT_ALPHA: 	return GL_ONE_MINUS_CONSTANT_ALPHA;
+	}
+	
+	return GL_ZERO;
+}
+
 static inline GPU_BLENDFACTOR pgl_convert_blendfactor(GLenum factor) 
 {
 	switch(factor)

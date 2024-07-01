@@ -240,6 +240,8 @@ typedef double    GLclampd; /* double precision float in [0,1] */
 #define GL_DITHER       0x0BD0
 #define GL_RGB          0x1907
 #define GL_RGBA         0x1908
+#define GL_CURRENT_COLOR 0x1909
+#define GL_DEPTH_WRITEMASK 0x1910
 
 /* Implementation limits */
 #define GL_MAX_MODELVIEW_STACK_DEPTH    0x0D36

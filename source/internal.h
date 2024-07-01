@@ -214,4 +214,7 @@ void _picaRestartPrimitive();
 void _queueWaitAndClear();
 void _queueRun(bool async);
 
+/* blend.c */
+GLenum _convert_blendfactor_to_gl(GPU_BLENDFACTOR factor);
+
 #endif
