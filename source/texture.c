@@ -103,10 +103,10 @@ static inline GLvoid* convertBGRAUShort1555REV(const GLvoid* inData, GLsizei wid
 	const int RATIO_8_BIT_5_BIT = 255 / 31;
 	for(unsigned i = 0; i < width * height; ++i)
 	{
-		short v = ((uint16_t*)inData)[i];
+		uint16_t v = ((uint16_t*)inData)[i];
 		convertedPixels[i*4]     = ((v >> 10) & 0x1ff) * RATIO_8_BIT_5_BIT; // R
 		convertedPixels[i*4 + 1] = ((v >> 5) & 0x1ff)  * RATIO_8_BIT_5_BIT; // G
-		convertedPixels[i*4 + 2] = (v & 0x1ff)       * RATIO_8_BIT_5_BIT;   // B
+		convertedPixels[i*4 + 2] = (v & 0x1ff)         * RATIO_8_BIT_5_BIT; // B
 		convertedPixels[i*4 + 3] = 255*(v >> 15);                           // A
 	}
 
