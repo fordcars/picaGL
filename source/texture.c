@@ -79,6 +79,59 @@ static inline readFunc _determineReadFunction(GLenum format, GLenum type, uint8_
 	}
 }
 
+static inline GLvoid* convertUInt8888REV(const GLvoid* inData, GLsizei width, GLsizei height)
+{
+	const unsigned expectedSize = width * height * 4;
+	unsigned char* convertedPixels = malloc(expectedSize);
+	const unsigned char* inBytes = (const unsigned char*)inData;
+	
+	for(unsigned i = 0; i < width * height; ++i)
+	{
+		convertedPixels[i*4]     = inBytes[i*4 + 3];
+		convertedPixels[i*4 + 1] = inBytes[i*4 + 2];
+		convertedPixels[i*4 + 2] = inBytes[i*4 + 1];
+		convertedPixels[i*4 + 3] = inBytes[i*4];
+	}
+
+	return convertedPixels;
+}
+
+static inline GLvoid* convertUShort1555REV(const GLvoid* inData, GLsizei width, GLsizei height)
+{
+	const unsigned expectedSize = width * height * 4;
+	unsigned char* convertedPixels = malloc(expectedSize);
+	const int RATIO_8_BIT_5_BIT = 255 / 31;
+	for(unsigned i = 0; i < width * height; ++i)
+	{
+		short v = ((uint16_t*)inData)[i];
+		convertedPixels[i*4]     = ((v >> 10) & 0x1ff) * RATIO_8_BIT_5_BIT; // R
+		convertedPixels[i*4 + 1] = ((v >> 5) & 0x1ff)  * RATIO_8_BIT_5_BIT; // G
+		convertedPixels[i*4 + 2] = (v & 0x1ff)       * RATIO_8_BIT_5_BIT;   // B
+		convertedPixels[i*4 + 3] = 255*(v >> 15);                           // A
+	}
+
+	return convertedPixels;
+}
+
+// Converts unsupported texture types into RGBA GL_UNSIGNED_BYTE
+// Returns null pointer if no conversion was done.
+static inline GLvoid* _normalizePixelType(const GLvoid* inData, GLsizei width, GLsizei height,
+										  GLenum type, GLenum* outType)
+{
+	switch(type)
+	{
+		case GL_UNSIGNED_INT_8_8_8_8_REV:
+			*outType = GL_UNSIGNED_BYTE;
+			return convertUInt8888REV(inData, width, height);
+		case GL_UNSIGNED_SHORT_1_5_5_5_REV:
+			*outType = GL_UNSIGNED_BYTE;
+			return convertUShort1555REV(inData, width, height);
+		default:
+			*outType = type;
+			return NULL;
+	}
+}
+
 static inline writeFunc _determineWriteFunction(GPU_TEXCOLOR format)
 {
 	switch (format) {
@@ -266,11 +319,21 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 
 	uint8_t offset_bpp = 0;
 
-	readFunc readPixel   = _determineReadFunction(format, type, &offset_bpp);
+	GLenum outType;
+	GLvoid* normalizedData = _normalizePixelType(data, width, height, type, &outType);
+	readFunc readPixel   = _determineReadFunction(format, outType, &offset_bpp);
 	writeFunc writePixel = _determineWriteFunction(texture->format);
 
-	if(readPixel && writePixel && data)
-		_textureTile(texture, 0, 0, width, height, data, offset_bpp, readPixel, writePixel);
+	if(readPixel && writePixel)
+	{
+		if(normalizedData)
+			_textureTile(texture, 0, 0, width, height, normalizedData, offset_bpp, readPixel, writePixel);
+		else
+			_textureTile(texture, 0, 0, width, height, data, offset_bpp, readPixel, writePixel);
+	}
+
+	if(normalizedData)
+		free(normalizedData);
 }
 
 void glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid* data)
