@@ -79,13 +79,33 @@ static inline readFunc _determineReadFunction(GLenum format, GLenum type, uint8_
 	}
 }
 
-static inline GLvoid* convertBGRAUInt8888REV(const GLvoid* inData, GLsizei width, GLsizei height)
+// https://stackoverflow.com/a/466242/6222104
+GLsizei _getNextPO2(GLsizei v)
 {
-	const unsigned expectedSize = width * height * 4;
-	unsigned char* convertedPixels = malloc(expectedSize);
+	if(v <= 0) return 0;
+
+	--v;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	return ++v;
+}
+
+static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight)
+{
+	const unsigned origDims = *ioWidth * *ioHeight;
+
+	// Make sure we have power-of-2
+	*ioWidth = _getNextPO2(*ioWidth);
+	*ioHeight = _getNextPO2(*ioHeight);
+
+	const unsigned newSize = *ioWidth * *ioHeight * 4;
+	unsigned char* convertedPixels = malloc(newSize);
 	const unsigned char* inBytes = (const unsigned char*)inData;
 	
-	for(unsigned i = 0; i < width * height; ++i)
+	for(unsigned i = 0; i < origDims; ++i)
 	{
 		convertedPixels[i*4]     = inBytes[i*4 + 3];
 		convertedPixels[i*4 + 1] = inBytes[i*4 + 2];
@@ -96,12 +116,18 @@ static inline GLvoid* convertBGRAUInt8888REV(const GLvoid* inData, GLsizei width
 	return convertedPixels;
 }
 
-static inline GLvoid* convertBGRAUShort1555REV(const GLvoid* inData, GLsizei width, GLsizei height)
+static inline GLvoid* _convertBGRAUShort1555REV(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight)
 {
-	const unsigned expectedSize = width * height * 4;
-	unsigned char* convertedPixels = malloc(expectedSize);
+	const unsigned origDims = *ioWidth * *ioHeight;
+
+	// Make sure we have power-of-2
+	*ioWidth = _getNextPO2(*ioWidth);
+	*ioHeight = _getNextPO2(*ioHeight);
+
+	const unsigned newSize = *ioWidth * *ioHeight * 4;
+	unsigned char* convertedPixels = malloc(newSize);
 	const int RATIO_8_BIT_5_BIT = 255 / 31;
-	for(unsigned i = 0; i < width * height; ++i)
+	for(unsigned i = 0; i < origDims; ++i)
 	{
 		uint16_t v = ((uint16_t*)inData)[i];
 		convertedPixels[i*4]     = ((v >> 10) & 0x1ff) * RATIO_8_BIT_5_BIT; // R
@@ -113,35 +139,65 @@ static inline GLvoid* convertBGRAUShort1555REV(const GLvoid* inData, GLsizei wid
 	return convertedPixels;
 }
 
-// Converts unsupported texture types into RGBA GL_UNSIGNED_BYTE
-// Returns null pointer if no conversion was done.
-static inline GLvoid* _normalizePixelFormat(const GLvoid* inData, GLsizei width, GLsizei height,
-											GLenum format, GLenum* outFormat,
-											GLenum type, GLenum* outType)
+// Simply guarantees the data has a power-of-2 size.
+// Assumes each pixel is 32-bit.
+// Returns null pointer if no changes were done.
+static inline GLvoid* _convertToPO2(const GLvoid* inData, uint8_t bpp, GLsizei* ioWidth, GLsizei* ioHeight)
 {
-	switch(format)
+	if(_getNextPO2(*ioWidth) == *ioWidth && _getNextPO2(*ioHeight) == *ioHeight)
+	{
+		// We already have a power-of-2-texture
+		return NULL;
+	}
+
+	const unsigned origSize = *ioWidth * *ioHeight * bpp;
+
+	*ioWidth = _getNextPO2(*ioWidth);
+	*ioHeight = _getNextPO2(*ioHeight);
+
+	const unsigned newSize = *ioWidth * *ioHeight * bpp;
+	unsigned char* convertedPixels = malloc(newSize);
+	memcpy(convertedPixels, inData, origSize);
+
+	return convertedPixels;
+}
+
+// Converts unsupported texture types into RGBA GL_UNSIGNED_BYTE.
+// Will also add padding if the texture is not a power of two (required).
+// Returns null pointer if no changes were done.
+static inline GLvoid* _normalizePixelFormat(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight,
+											GLenum* ioFormat, GLenum* ioType)
+{
+	GLvoid* out = NULL;
+	switch(*ioFormat)
 	{
 		case GL_BGRA:
-			switch(type)
+			switch(*ioType)
 			{
 				case GL_UNSIGNED_INT_8_8_8_8_REV:
-					*outFormat = GL_RGBA;
-					*outType = GL_UNSIGNED_BYTE;
-					return convertBGRAUInt8888REV(inData, width, height);
+					out = _convertBGRAUInt8888REV(inData, ioWidth, ioHeight);
+					*ioFormat = GL_RGBA;
+					*ioType = GL_UNSIGNED_BYTE;
+					break;
 				case GL_UNSIGNED_SHORT_1_5_5_5_REV:
-					*outFormat = GL_RGBA;
-					*outType = GL_UNSIGNED_BYTE;
-					return convertBGRAUShort1555REV(inData, width, height);
+					out = _convertBGRAUShort1555REV(inData, ioWidth, ioHeight);
+					*ioFormat = GL_RGBA;
+					*ioType = GL_UNSIGNED_BYTE;
+					break;
 				default:
-					*outFormat = format;
-					*outType = type;
-					return NULL;
+					out = _convertToPO2(inData, 4, ioWidth, ioHeight);
+					break;
 			}
+			break;
+		case GL_BGR:
+			out = _convertToPO2(inData, 3, ioWidth, ioHeight);
+			break;
 		default:
-			*outFormat = format;
-			*outType = type;
-			return NULL;
+			out = _convertToPO2(inData, 4, ioWidth, ioHeight);
+			break;
 	}
+
+	return out;
 }
 
 static inline writeFunc _determineWriteFunction(GPU_TEXCOLOR format)
@@ -310,6 +366,9 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 	if(texture->data)
 		_textureDataFree(texture);
 
+	GLvoid* normalizedData =
+		_normalizePixelFormat(data, &width, &height, &format, &type);
+
 	texture->format = _determineHardwareFormat(internalFormat);
 	texture->bpp 	= _determineBPP(texture->format);
 	texture->width  = width;
@@ -330,13 +389,8 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 	if(!data) return;
 
 	uint8_t offset_bpp = 0;
-
-	GLenum normType;
-	GLenum normFormat;
-	GLvoid* normalizedData =
-		_normalizePixelFormat(data, width, height, format, &normFormat, type, &normType);
-	readFunc readPixel   = _determineReadFunction(normFormat, normType, &offset_bpp);
 	writeFunc writePixel = _determineWriteFunction(texture->format);
+	readFunc readPixel   = _determineReadFunction(format, type, &offset_bpp);
 
 	if(readPixel && writePixel)
 	{
