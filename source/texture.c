@@ -94,7 +94,8 @@ GLsizei _getNextPO2(GLsizei v)
 }
 
 // Converts to RGBA GL_UNSIGNED_BYTE power-of-2 texture.
-static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight)
+static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioWidth,
+											  GLsizei* ioHeight, bool forcePO2)
 {
 	const unsigned DEST_BPP = 4;
 
@@ -102,9 +103,12 @@ static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioW
 	const unsigned origHeight = *ioHeight;
 	const unsigned origSize = origWidth * origHeight;
 
-	// Make sure we have power-of-2
-	*ioWidth = _getNextPO2(*ioWidth);
-	*ioHeight = _getNextPO2(*ioHeight);
+	if(forcePO2)
+	{
+		// Make sure we have power-of-2
+		*ioWidth = _getNextPO2(*ioWidth);
+		*ioHeight = _getNextPO2(*ioHeight);
+	}
 
 	const unsigned rightPadding = *ioWidth - origWidth;
 
@@ -126,7 +130,8 @@ static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioW
 }
 
 // Converts to RGBA GL_UNSIGNED_BYTE power-of-2 texture.
-static inline GLvoid* _convertBGRAUShort1555REV(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight)
+static inline GLvoid* _convertBGRAUShort1555REV(const GLvoid* inData, GLsizei* ioWidth,
+												GLsizei* ioHeight, bool forcePO2)
 {
 	const unsigned DEST_BPP = 4;
 
@@ -134,9 +139,12 @@ static inline GLvoid* _convertBGRAUShort1555REV(const GLvoid* inData, GLsizei* i
 	const unsigned origHeight = *ioHeight;
 	const unsigned origSize = origWidth * origHeight;
 
-	// Make sure we have power-of-2
-	*ioWidth = _getNextPO2(*ioWidth);
-	*ioHeight = _getNextPO2(*ioHeight);
+	if(forcePO2)
+	{
+		// Make sure we have power-of-2
+		*ioWidth = _getNextPO2(*ioWidth);
+		*ioHeight = _getNextPO2(*ioHeight);
+	}
 
 	const unsigned rightPadding = *ioWidth - origWidth;
 
@@ -199,10 +207,12 @@ static inline GLvoid* _convertToPO2(const GLvoid* inData, uint8_t bpp, GLsizei* 
 }
 
 // Converts unsupported texture types into RGBA GL_UNSIGNED_BYTE.
-// Will also add padding if the texture is not a power of two (required).
+// If forcePO2 is true, will also add padding if the texture is not a
+// power of two.
 // Returns null pointer if no changes were done.
-static inline GLvoid* _normalizePixelFormat(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight,
-											GLenum* ioFormat, GLenum* ioType)
+static inline GLvoid* _normalizePixelFormat(const GLvoid* inData, GLint* internalFormat,
+											GLsizei* ioWidth, GLsizei* ioHeight,
+											GLenum* ioFormat, GLenum* ioType, bool forcePO2)
 {
 	GLvoid* out = NULL;
 	switch(*ioFormat)
@@ -211,25 +221,30 @@ static inline GLvoid* _normalizePixelFormat(const GLvoid* inData, GLsizei* ioWid
 			switch(*ioType)
 			{
 				case GL_UNSIGNED_INT_8_8_8_8_REV:
-					out = _convertBGRAUInt8888REV(inData, ioWidth, ioHeight);
+					out = _convertBGRAUInt8888REV(inData, ioWidth, ioHeight, forcePO2);
+					*internalFormat = GL_RGBA;
 					*ioFormat = GL_RGBA;
 					*ioType = GL_UNSIGNED_BYTE;
 					break;
 				case GL_UNSIGNED_SHORT_1_5_5_5_REV:
-					out = _convertBGRAUShort1555REV(inData, ioWidth, ioHeight);
+					out = _convertBGRAUShort1555REV(inData, ioWidth, ioHeight, forcePO2);
+					*internalFormat = GL_RGBA;
 					*ioFormat = GL_RGBA;
 					*ioType = GL_UNSIGNED_BYTE;
 					break;
 				default:
-					out = _convertToPO2(inData, 4, ioWidth, ioHeight);
+					if(forcePO2)
+						out = _convertToPO2(inData, 4, ioWidth, ioHeight);
 					break;
 			}
 			break;
 		case GL_BGR:
-			out = _convertToPO2(inData, 3, ioWidth, ioHeight);
+			if(forcePO2)
+				out = _convertToPO2(inData, 3, ioWidth, ioHeight);
 			break;
 		default:
-			out = _convertToPO2(inData, 4, ioWidth, ioHeight);
+			if(forcePO2)
+				out = _convertToPO2(inData, 4, ioWidth, ioHeight);
 			break;
 	}
 
@@ -405,7 +420,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 	GLsizei origWidth = width;
 	GLsizei origHeight = height;
 	GLvoid* normalizedData =
-		_normalizePixelFormat(data, &width, &height, &format, &type);
+		_normalizePixelFormat(data, &internalFormat, &width, &height, &format, &type, false);
 
 	texture->format = _determineHardwareFormat(internalFormat);
 	texture->bpp 	= _determineBPP(texture->format);
@@ -456,11 +471,21 @@ void glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, G
 
 	uint8_t offset_bpp = 0;
 
+	GLint internalFormat;
+	GLvoid* normalizedData =
+		_normalizePixelFormat(data, &internalFormat, &width, &height, &format, &type, false);
+
 	readFunc readPixel   = _determineReadFunction(format, type, &offset_bpp);
 	writeFunc writePixel = _determineWriteFunction(texture->format);
 
 	if(readPixel && writePixel)
-		_textureTile(texture, xoffset, yoffset, width, height, data, offset_bpp, readPixel, writePixel);
+	{
+		if(normalizedData)
+			_textureTile(texture, xoffset, yoffset, width, height, normalizedData, offset_bpp, readPixel, writePixel);
+		else
+			_textureTile(texture, xoffset, yoffset, width, height, data, offset_bpp, readPixel, writePixel);
+
+	}
 
 	pglState->textureChanged = GL_TRUE;
 	pglState->changes |= STATE_TEXTURE_CHANGE;
