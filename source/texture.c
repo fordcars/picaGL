@@ -84,7 +84,7 @@ GLsizei _getNextPO2(GLsizei v)
 {
 	if(v <= 0) return 0;
 
-	--v;
+	//--v;rmeovee
 	v |= v >> 1;
 	v |= v >> 2;
 	v |= v >> 4;
@@ -93,47 +93,66 @@ GLsizei _getNextPO2(GLsizei v)
 	return ++v;
 }
 
+// Converts to RGBA GL_UNSIGNED_BYTE power-of-2 texture.
 static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight)
 {
-	const unsigned origDims = *ioWidth * *ioHeight;
+	const unsigned DEST_BPP = 4;
+
+	const unsigned origWidth = *ioWidth;
+	const unsigned origHeight = *ioHeight;
+	const unsigned origSize = origWidth * origHeight;
 
 	// Make sure we have power-of-2
 	*ioWidth = _getNextPO2(*ioWidth);
 	*ioHeight = _getNextPO2(*ioHeight);
 
-	const unsigned newSize = *ioWidth * *ioHeight * 4;
+	const unsigned rightPadding = *ioWidth - origWidth;
+
+	const unsigned newSize = *ioWidth * *ioHeight * DEST_BPP;
 	unsigned char* convertedPixels = malloc(newSize);
 	const unsigned char* inBytes = (const unsigned char*)inData;
 	
-	for(unsigned i = 0; i < origDims; ++i)
+	for(unsigned i = 0; i < origSize; ++i)
 	{
-		convertedPixels[i*4]     = inBytes[i*4 + 3];
-		convertedPixels[i*4 + 1] = inBytes[i*4 + 2];
-		convertedPixels[i*4 + 2] = inBytes[i*4 + 1];
-		convertedPixels[i*4 + 3] = inBytes[i*4];
+		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * DEST_BPP;
+		
+		convertedPixels[destPixelI]     = inBytes[i*DEST_BPP + 3];
+		convertedPixels[destPixelI + 1] = inBytes[i*DEST_BPP + 2];
+		convertedPixels[destPixelI + 2] = inBytes[i*DEST_BPP + 1];
+		convertedPixels[destPixelI + 3] = inBytes[i*DEST_BPP];
 	}
 
 	return convertedPixels;
 }
 
+// Converts to RGBA GL_UNSIGNED_BYTE power-of-2 texture.
 static inline GLvoid* _convertBGRAUShort1555REV(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight)
 {
-	const unsigned origDims = *ioWidth * *ioHeight;
+	const unsigned DEST_BPP = 4;
+
+	const unsigned origWidth = *ioWidth;
+	const unsigned origHeight = *ioHeight;
+	const unsigned origSize = origWidth * origHeight;
 
 	// Make sure we have power-of-2
 	*ioWidth = _getNextPO2(*ioWidth);
 	*ioHeight = _getNextPO2(*ioHeight);
 
-	const unsigned newSize = *ioWidth * *ioHeight * 4;
+	const unsigned rightPadding = *ioWidth - origWidth;
+
+	const unsigned newSize = *ioWidth * *ioHeight * DEST_BPP;
 	unsigned char* convertedPixels = malloc(newSize);
 	const int RATIO_8_BIT_5_BIT = 255 / 31;
-	for(unsigned i = 0; i < origDims; ++i)
+
+	for(unsigned i = 0; i < origSize; ++i)
 	{
-		uint16_t v = ((uint16_t*)inData)[i];
-		convertedPixels[i*4]     = ((v >> 10) & 0x1ff) * RATIO_8_BIT_5_BIT; // R
-		convertedPixels[i*4 + 1] = ((v >> 5) & 0x1ff)  * RATIO_8_BIT_5_BIT; // G
-		convertedPixels[i*4 + 2] = (v & 0x1ff)         * RATIO_8_BIT_5_BIT; // B
-		convertedPixels[i*4 + 3] = 255*(v >> 15);                           // A
+		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * DEST_BPP;
+		const uint16_t v = ((uint16_t*)inData)[i];
+
+		convertedPixels[destPixelI]     = ((v >> 10) & 0x1ff) * RATIO_8_BIT_5_BIT; // R
+		convertedPixels[destPixelI + 1] = ((v >> 5) & 0x1ff)  * RATIO_8_BIT_5_BIT; // G
+		convertedPixels[destPixelI + 2] = (v & 0x1ff)         * RATIO_8_BIT_5_BIT; // B
+		convertedPixels[destPixelI + 3] = 255*(v >> 15);                           // A
 	}
 
 	return convertedPixels;
@@ -150,14 +169,31 @@ static inline GLvoid* _convertToPO2(const GLvoid* inData, uint8_t bpp, GLsizei* 
 		return NULL;
 	}
 
-	const unsigned origSize = *ioWidth * *ioHeight * bpp;
+	const unsigned DEST_BPP = 4;
 
+	const unsigned origWidth = *ioWidth;
+	const unsigned origHeight = *ioHeight;
+	const unsigned origSize = origWidth * origHeight;
+
+	// Make sure we have power-of-2
 	*ioWidth = _getNextPO2(*ioWidth);
 	*ioHeight = _getNextPO2(*ioHeight);
 
-	const unsigned newSize = *ioWidth * *ioHeight * bpp;
+	const unsigned rightPadding = *ioWidth - origWidth;
+
+	const unsigned newSize = *ioWidth * *ioHeight * DEST_BPP;
 	unsigned char* convertedPixels = malloc(newSize);
-	memcpy(convertedPixels, inData, origSize);
+	const unsigned char* inBytes = (const unsigned char*)inData;
+	
+	for(unsigned i = 0; i < origSize; ++i)
+	{
+		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * DEST_BPP;
+		
+		convertedPixels[destPixelI]     = inBytes[i*DEST_BPP];
+		convertedPixels[destPixelI + 1] = inBytes[i*DEST_BPP + 1];
+		convertedPixels[destPixelI + 2] = inBytes[i*DEST_BPP + 2];
+		convertedPixels[destPixelI + 3] = inBytes[i*DEST_BPP + 3];
+	}
 
 	return convertedPixels;
 }
@@ -366,6 +402,8 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 	if(texture->data)
 		_textureDataFree(texture);
 
+	GLsizei origWidth = width;
+	GLsizei origHeight = height;
 	GLvoid* normalizedData =
 		_normalizePixelFormat(data, &width, &height, &format, &type);
 
@@ -373,6 +411,8 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 	texture->bpp 	= _determineBPP(texture->format);
 	texture->width  = width;
 	texture->height = height;
+	texture->usableWidth = origWidth;
+	texture->usableHeight = origHeight;
 	texture->data   = _textureDataAlloc(width * height * texture->bpp);
 
 	if(texture->data == NULL)
@@ -474,6 +514,8 @@ void glBindTexture(GLenum target, GLuint texture)
 		texObject->param  = GPU_TEXTURE_MAG_FILTER(GPU_LINEAR) | GPU_TEXTURE_WRAP_S(GPU_REPEAT) | GPU_TEXTURE_WRAP_T(GPU_REPEAT);
 		texObject->width  = 0;
 		texObject->height = 0;
+		texObject->usableWidth  = 0;
+		texObject->usableHeight = 0;
 
 		texObject->format = 0;
 		texObject->data   = NULL;
@@ -502,6 +544,8 @@ void glGenTextures(GLsizei n, GLuint *textures)
 		texObject->param  = GPU_TEXTURE_MAG_FILTER(GPU_LINEAR) | GPU_TEXTURE_WRAP_S(GPU_REPEAT) | GPU_TEXTURE_WRAP_T(GPU_REPEAT);
 		texObject->width  = 0;
 		texObject->height = 0;
+		texObject->usableWidth  = 0;
+		texObject->usableHeight = 0;
 
 		texObject->format = 0;
 		texObject->data   = NULL;

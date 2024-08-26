@@ -48,6 +48,7 @@ typedef struct {
 typedef struct {
 	uint16_t format;
 	uint16_t width, height;
+	uint16_t usableWidth, usableHeight; // For non power-of-2 textures
 	uint32_t param;
 	uint32_t border;
 	uint8_t bpp;

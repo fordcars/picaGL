@@ -94,6 +94,11 @@ void _stateDefault()
 void _stateFlush()
 {
 	static matrix4x4 matrix_mvp;
+	static vector4f texCoordMultiplier;
+	texCoordMultiplier.x = 1.0f;
+	texCoordMultiplier.y = 1.0f;
+	texCoordMultiplier.z = 1.0f;
+	texCoordMultiplier.w = 1.0f;
 
 	if(!pglState->changes)
 		return;
@@ -153,18 +158,32 @@ void _stateFlush()
 
 		if(pglState->texUnitState[0] && pglState->textureBound[0]->data)
 		{
+			TextureObject* tex = pglState->textureBound[0];
+
+			// To handle non power-of-2 textures
+			texCoordMultiplier.x = tex->usableWidth / (float)tex->width;
+			texCoordMultiplier.y = tex->usableHeight / (float)tex->height;
+			_picaUniformFloat(GPU_VERTEX_SHADER, 4, (float*)&texCoordMultiplier, 1);
+
 			texunit_enable_mask |= 0x01;
 			_picaTextureEnvSet(0, &pglState->texenv[0]);
-			_picaTextureObjectSet(GPU_TEXUNIT0, pglState->textureBound[0]);
+			_picaTextureObjectSet(GPU_TEXUNIT0, tex);
 		}
 		else
 			_picaTextureEnvSet(0, &pglState->texenv[PGL_TEXENV_UNTEXTURED]);
 
 		if(pglState->texUnitState[1] && pglState->textureBound[1]->data)
 		{
+			TextureObject* tex = pglState->textureBound[1];
+
+			// To handle non power-of-2 textures
+			texCoordMultiplier.x = tex->usableWidth / (float)tex->width;
+			texCoordMultiplier.y = tex->usableHeight / (float)tex->height;
+			_picaUniformFloat(GPU_VERTEX_SHADER, 5, (float*)&texCoordMultiplier, 1);
+
 			texunit_enable_mask |= 0x02;
 			_picaTextureEnvSet(1, &pglState->texenv[1]);
-			_picaTextureObjectSet(GPU_TEXUNIT1, pglState->textureBound[1]);
+			_picaTextureObjectSet(GPU_TEXUNIT1, tex);
 		}
 		else
 			_picaTextureEnvSet(1, &pglState->texenv[PGL_TEXENV_DUMMY]);

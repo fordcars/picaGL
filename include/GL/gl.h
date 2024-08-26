@@ -844,6 +844,9 @@ void glMultiTexCoord4sv( GLenum target, const GLshort *v );
 #define GL_INCR_WRAP_EXT      0x8507
 #define GL_DECR_WRAP_EXT      0x8508
 
+#define GL_BGRA_EXT                       GL_BGRA
+#define GL_APPLE_texture_format_BGRA8888  GL_BGRA
+
 void glFogCoordf (GLfloat);
 void glFogCoordfv (const GLfloat *);
 void glFogCoordd (GLdouble);
