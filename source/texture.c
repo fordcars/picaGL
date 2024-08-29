@@ -420,7 +420,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 	GLsizei origWidth = width;
 	GLsizei origHeight = height;
 	GLvoid* normalizedData =
-		_normalizeTextureFormat(data, &internalFormat, &width, &height, &format, &type, false);
+		_normalizeTextureFormat(data, &internalFormat, &width, &height, &format, &type, true);
 
 	texture->format = _determineHardwareFormat(internalFormat);
 	texture->bpp 	= _determineBPP(texture->format);
