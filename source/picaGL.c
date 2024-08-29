@@ -91,3 +91,11 @@ void pglSelectScreen(unsigned display, unsigned side)
 	pglState->display = display;
 	pglState->display_side = side;
 }
+
+GLvoid* pglNormalizeTextureFormat(const GLvoid* inData, GLint* internalFormat,
+								GLsizei* ioWidth, GLsizei* ioHeight,
+								GLenum* ioFormat, GLenum* ioType, bool forcePO2)
+{
+	return _normalizeTextureFormat(inData, internalFormat, ioWidth, ioHeight,
+								   ioFormat, ioType, forcePO2);
+}
