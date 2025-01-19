@@ -96,6 +96,5 @@ GLvoid* pglNormalizeTextureFormat(const GLvoid* inData, GLint* internalFormat,
 								GLsizei* ioWidth, GLsizei* ioHeight,
 								GLenum* ioFormat, GLenum* ioType, bool forcePO2)
 {
-	return _normalizeTextureFormat(inData, internalFormat, ioWidth, ioHeight,
-								   ioFormat, ioType, forcePO2);
+	return _normalizeTextureFormat(inData, ioWidth, ioHeight, ioFormat, ioType, forcePO2);
 }

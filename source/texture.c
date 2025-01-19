@@ -210,8 +210,7 @@ static inline GLvoid* _convertToPO2(const GLvoid* inData, uint8_t bpp, GLsizei* 
 // If forcePO2 is true, will also add padding if the texture is not a
 // power of two.
 // Returns null pointer if no changes were done.
-GLvoid* _normalizeTextureFormat(const GLvoid* inData, GLint* internalFormat,
-								GLsizei* ioWidth, GLsizei* ioHeight,
+GLvoid* _normalizeTextureFormat(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight,
 								GLenum* ioFormat, GLenum* ioType, bool forcePO2)
 {
 	GLvoid* out = NULL;
@@ -222,13 +221,11 @@ GLvoid* _normalizeTextureFormat(const GLvoid* inData, GLint* internalFormat,
 			{
 				case GL_UNSIGNED_INT_8_8_8_8_REV:
 					out = _convertBGRAUInt8888REV(inData, ioWidth, ioHeight, forcePO2);
-					*internalFormat = GL_RGBA;
 					*ioFormat = GL_RGBA;
 					*ioType = GL_UNSIGNED_BYTE;
 					break;
 				case GL_UNSIGNED_SHORT_1_5_5_5_REV:
 					out = _convertBGRAUShort1555REV(inData, ioWidth, ioHeight, forcePO2);
-					*internalFormat = GL_RGBA;
 					*ioFormat = GL_RGBA;
 					*ioType = GL_UNSIGNED_BYTE;
 					break;
@@ -420,7 +417,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 	GLsizei origWidth = width;
 	GLsizei origHeight = height;
 	GLvoid* normalizedData =
-		_normalizeTextureFormat(data, &internalFormat, &width, &height, &format, &type, true);
+		_normalizeTextureFormat(data, &width, &height, &format, &type, true);
 
 	texture->format = _determineHardwareFormat(internalFormat);
 	texture->bpp 	= _determineBPP(texture->format);
@@ -471,9 +468,8 @@ void glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, G
 
 	uint8_t offset_bpp = 0;
 
-	GLint internalFormat;
 	GLvoid* normalizedData =
-		_normalizeTextureFormat(data, &internalFormat, &width, &height, &format, &type, false);
+		_normalizeTextureFormat(data, &width, &height, &format, &type, false);
 
 	readFunc readPixel   = _determineReadFunction(format, type, &offset_bpp);
 	writeFunc writePixel = _determineWriteFunction(texture->format);

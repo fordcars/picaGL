@@ -219,8 +219,7 @@ void _queueRun(bool async);
 GLenum _convert_blendfactor_to_gl(GPU_BLENDFACTOR factor);
 
 /* texutre.c */
-GLvoid* _normalizeTextureFormat(const GLvoid* inData, GLint* internalFormat,
-								GLsizei* ioWidth, GLsizei* ioHeight,
+GLvoid* _normalizeTextureFormat(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight,
 								GLenum* ioFormat, GLenum* ioType, bool forcePO2);
 
 #endif
