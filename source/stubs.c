@@ -154,7 +154,6 @@ void glPixelMapfv(GLenum map, GLsizei mapsize, const GLfloat *values) {}
 void glPixelMapuiv(GLenum map, GLsizei mapsize, const GLuint *values) {}
 void glPixelMapusv(GLenum map, GLsizei mapsize, const GLushort *values) {}
 void glPixelStoref(GLenum pname, GLfloat param) {}
-void glPixelStorei(GLenum pname, GLint param) {}
 void glPixelTransferf(GLenum pname, GLfloat param) {}
 void glPixelTransferi(GLenum pname, GLint param) {}
 void glPixelZoom(GLfloat xfactor, GLfloat yfactor) {}

@@ -44,6 +44,9 @@ void glGetIntegerv(GLenum pname, GLint *params)
 		case GL_BLEND_DST:
 			*params = _convert_blendfactor_to_gl(pglState->blendDstFunction);
 			break;
+		case GL_UNPACK_ROW_LENGTH:
+			*params = pglState->unpackRowLength;
+			break;
 	}
 }
 

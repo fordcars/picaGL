@@ -146,6 +146,7 @@ typedef struct {
 	HashTable			textureTable;
 
 	GLboolean			textureChanged;
+	GLint				unpackRowLength;
 
 	GLint				viewportX, viewportY;
 	GLsizei				viewportWidth, viewportHeight;

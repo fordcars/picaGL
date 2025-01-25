@@ -80,7 +80,7 @@ static inline readFunc _determineReadFunction(GLenum format, GLenum type, uint8_
 }
 
 // https://stackoverflow.com/a/466242/6222104
-GLsizei _getNextPO2(GLsizei v)
+static inline GLsizei _getNextPO2(GLsizei v)
 {
 	if(v <= 0) return 0;
 
@@ -93,15 +93,22 @@ GLsizei _getNextPO2(GLsizei v)
 	return ++v;
 }
 
+static inline bool _isPO2(GLsizei width, GLsizei height)
+{
+	return _getNextPO2(width) == width && _getNextPO2(height) == height;
+}
+
 // Converts to RGBA GL_UNSIGNED_BYTE power-of-2 texture.
 static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioWidth,
 											  GLsizei* ioHeight, bool forcePO2)
 {
-	const unsigned DEST_BPP = 4;
+	const unsigned BPP = 4;
 
 	const unsigned origWidth = *ioWidth;
 	const unsigned origHeight = *ioHeight;
 	const unsigned origSize = origWidth * origHeight;
+	const unsigned unpackRowLength
+		= pglState->unpackRowLength == 0 ? origWidth : pglState->unpackRowLength;
 
 	if(forcePO2)
 	{
@@ -112,18 +119,21 @@ static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioW
 
 	const unsigned rightPadding = *ioWidth - origWidth;
 
-	const unsigned newSize = *ioWidth * *ioHeight * DEST_BPP;
+	const unsigned newSize = *ioWidth * *ioHeight * BPP;
 	unsigned char* convertedPixels = malloc(newSize);
 	const unsigned char* inBytes = (const unsigned char*)inData;
 	
 	for(unsigned i = 0; i < origSize; ++i)
 	{
-		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * DEST_BPP;
+		const unsigned numSkipPixelsPerRow = unpackRowLength - origWidth;
+		const unsigned inRow = i / origWidth;
+		const unsigned inPixelI = (i + numSkipPixelsPerRow * inRow) * BPP;
+		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * BPP;
 		
-		convertedPixels[destPixelI]     = inBytes[i*DEST_BPP + 3];
-		convertedPixels[destPixelI + 1] = inBytes[i*DEST_BPP + 2];
-		convertedPixels[destPixelI + 2] = inBytes[i*DEST_BPP + 1];
-		convertedPixels[destPixelI + 3] = inBytes[i*DEST_BPP];
+		convertedPixels[destPixelI]     = inBytes[inPixelI + 3];
+		convertedPixels[destPixelI + 1] = inBytes[inPixelI + 2];
+		convertedPixels[destPixelI + 2] = inBytes[inPixelI + 1];
+		convertedPixels[destPixelI + 3] = inBytes[inPixelI];
 	}
 
 	return convertedPixels;
@@ -138,6 +148,8 @@ static inline GLvoid* _convertBGRAUShort1555REV(const GLvoid* inData, GLsizei* i
 	const unsigned origWidth = *ioWidth;
 	const unsigned origHeight = *ioHeight;
 	const unsigned origSize = origWidth * origHeight;
+	const unsigned unpackRowLength
+		= pglState->unpackRowLength == 0 ? origWidth : pglState->unpackRowLength;
 
 	if(forcePO2)
 	{
@@ -154,8 +166,11 @@ static inline GLvoid* _convertBGRAUShort1555REV(const GLvoid* inData, GLsizei* i
 
 	for(unsigned i = 0; i < origSize; ++i)
 	{
+		const unsigned numSkipPixelsPerRow = unpackRowLength - origWidth;
+		const unsigned inRow = i / origWidth;
+		const unsigned inPixelI = i + numSkipPixelsPerRow * inRow;
 		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * DEST_BPP;
-		const uint16_t v = ((uint16_t*)inData)[i];
+		const uint16_t v = ((uint16_t*)inData)[inPixelI];
 
 		convertedPixels[destPixelI]     = ((v >> 10) & 0x1ff) * RATIO_8_BIT_5_BIT; // R
 		convertedPixels[destPixelI + 1] = ((v >> 5) & 0x1ff)  * RATIO_8_BIT_5_BIT; // G
@@ -169,19 +184,15 @@ static inline GLvoid* _convertBGRAUShort1555REV(const GLvoid* inData, GLsizei* i
 // Simply guarantees the data has a power-of-2 size.
 // Assumes each pixel is 32-bit.
 // Returns null pointer if no changes were done.
-static inline GLvoid* _convertToPO2(const GLvoid* inData, uint8_t bpp, GLsizei* ioWidth, GLsizei* ioHeight)
+static inline GLvoid* _convertToPO2(const GLvoid* inData, uint8_t inBpp, GLsizei* ioWidth, GLsizei* ioHeight)
 {
-	if(_getNextPO2(*ioWidth) == *ioWidth && _getNextPO2(*ioHeight) == *ioHeight)
-	{
-		// We already have a power-of-2-texture
-		return NULL;
-	}
-
 	const unsigned DEST_BPP = 4;
 
 	const unsigned origWidth = *ioWidth;
 	const unsigned origHeight = *ioHeight;
 	const unsigned origSize = origWidth * origHeight;
+	const unsigned unpackRowLength
+		= pglState->unpackRowLength == 0 ? origWidth : pglState->unpackRowLength;
 
 	// Make sure we have power-of-2
 	*ioWidth = _getNextPO2(*ioWidth);
@@ -195,18 +206,48 @@ static inline GLvoid* _convertToPO2(const GLvoid* inData, uint8_t bpp, GLsizei* 
 	
 	for(unsigned i = 0; i < origSize; ++i)
 	{
+		const unsigned numSkipPixelsPerRow = unpackRowLength - origWidth;
+		const unsigned inRow = i / origWidth;
+		const unsigned inPixelI = (i + numSkipPixelsPerRow * inRow) * inBpp;
 		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * DEST_BPP;
 		
-		convertedPixels[destPixelI]     = inBytes[i*DEST_BPP];
-		convertedPixels[destPixelI + 1] = inBytes[i*DEST_BPP + 1];
-		convertedPixels[destPixelI + 2] = inBytes[i*DEST_BPP + 2];
-		convertedPixels[destPixelI + 3] = inBytes[i*DEST_BPP + 3];
+		convertedPixels[destPixelI]     = inBytes[inPixelI];
+		convertedPixels[destPixelI + 1] = inBytes[inPixelI + 1];
+		convertedPixels[destPixelI + 2] = inBytes[inPixelI + 2];
+		convertedPixels[destPixelI + 3] = (inBpp == 4 ? inBytes[inPixelI + 3] : 0);
+	}
+
+	return convertedPixels;
+}
+
+// Just a simple routine to handle glPixelStore() parameters only (if present).
+// Returns null pointer if no changes were done.
+static inline GLvoid* _handlePackingOnly(const GLvoid* inData, uint8_t inBpp, GLsizei width, GLsizei height)
+{
+	if(pglState->unpackRowLength == 0)
+		return NULL;
+
+	const unsigned DEST_BPP = 4;
+	unsigned char* convertedPixels = malloc(width * height * DEST_BPP);
+	const unsigned char* inBytes = (const unsigned char*)inData;
+	
+	for(unsigned i = 0; i < width*height; ++i)
+	{
+		const unsigned numSkipPixelsPerRow = pglState->unpackRowLength - width;
+		const unsigned inRow = i / width;
+		const unsigned inPixelI = (i + numSkipPixelsPerRow * inRow) * inBpp;
+		
+		convertedPixels[i*DEST_BPP]     = inBytes[inPixelI];
+		convertedPixels[i*DEST_BPP + 1] = inBytes[inPixelI + 1];
+		convertedPixels[i*DEST_BPP + 2] = inBytes[inPixelI + 2];
+		convertedPixels[i*DEST_BPP + 3] = (inBpp == 4 ? inBytes[inPixelI + 3] : 0);
 	}
 
 	return convertedPixels;
 }
 
 // Converts unsupported texture types into RGBA GL_UNSIGNED_BYTE.
+// Also deals with GL_UNPACK_ROW_LENGTH.
 // If forcePO2 is true, will also add padding if the texture is not a
 // power of two.
 // Returns null pointer if no changes were done.
@@ -230,18 +271,24 @@ GLvoid* _normalizeTextureFormat(const GLvoid* inData, GLsizei* ioWidth, GLsizei*
 					*ioType = GL_UNSIGNED_BYTE;
 					break;
 				default:
-					if(forcePO2)
+					if(forcePO2 && !_isPO2(*ioWidth, *ioHeight))
 						out = _convertToPO2(inData, 4, ioWidth, ioHeight);
+					else if(pglState->unpackRowLength > 0)
+						out = _handlePackingOnly(inData, 4, *ioWidth, *ioHeight);
 					break;
 			}
 			break;
 		case GL_BGR:
-			if(forcePO2)
+			if(forcePO2 && !_isPO2(*ioWidth, *ioHeight))
 				out = _convertToPO2(inData, 3, ioWidth, ioHeight);
+			else if(pglState->unpackRowLength > 0)
+				out = _handlePackingOnly(inData, 3, *ioWidth, *ioHeight);
 			break;
 		default:
-			if(forcePO2)
+			if(forcePO2 && !_isPO2(*ioWidth, *ioHeight))
 				out = _convertToPO2(inData, 4, ioWidth, ioHeight);
+			else if(pglState->unpackRowLength > 0)
+				out = _handlePackingOnly(inData, 4, *ioWidth, *ioHeight);
 			break;
 	}
 
@@ -702,4 +749,17 @@ inline void glTexEnvi (GLenum target, GLenum pname, GLint param)
 void glTexEnvf (GLenum target, GLenum pname, GLfloat param)
 {
 	glTexEnvi (target, pname, (int)param);
+}
+
+void glPixelStorei (GLenum pname, GLint param)
+{
+	switch (pname)
+	{
+		case GL_UNPACK_ROW_LENGTH:
+			pglState->unpackRowLength = param;
+			break;
+
+		default:
+			break;
+	}
 }
