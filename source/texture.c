@@ -130,10 +130,10 @@ static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioW
 		const unsigned inPixelI = (i + numSkipPixelsPerRow * inRow) * BPP;
 		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * BPP;
 		
-		convertedPixels[destPixelI]     = inBytes[inPixelI + 3];
-		convertedPixels[destPixelI + 1] = inBytes[inPixelI + 2];
-		convertedPixels[destPixelI + 2] = inBytes[inPixelI + 1];
-		convertedPixels[destPixelI + 3] = inBytes[inPixelI];
+		convertedPixels[destPixelI]     = inBytes[inPixelI + 2];
+		convertedPixels[destPixelI + 1] = inBytes[inPixelI + 1];
+		convertedPixels[destPixelI + 2] = inBytes[inPixelI];
+		convertedPixels[destPixelI + 3] = inBytes[inPixelI + 3];
 	}
 
 	return convertedPixels;
