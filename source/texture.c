@@ -98,7 +98,7 @@ static inline bool _isPO2(GLsizei width, GLsizei height)
 	return _getNextPO2(width) == width && _getNextPO2(height) == height;
 }
 
-// Converts to RGBA GL_UNSIGNED_BYTE power-of-2 texture.
+// Converts to RGBA GL_UNSIGNED_BYTE
 static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioWidth,
 											  GLsizei* ioHeight, bool forcePO2)
 {
@@ -139,7 +139,7 @@ static inline GLvoid* _convertBGRAUInt8888REV(const GLvoid* inData, GLsizei* ioW
 	return convertedPixels;
 }
 
-// Converts to RGBA GL_UNSIGNED_BYTE power-of-2 texture.
+// Converts to RGBA GL_UNSIGNED_BYTE
 static inline GLvoid* _convertBGRAUShort1555REV(const GLvoid* inData, GLsizei* ioWidth,
 												GLsizei* ioHeight, bool forcePO2)
 {
@@ -172,10 +172,94 @@ static inline GLvoid* _convertBGRAUShort1555REV(const GLvoid* inData, GLsizei* i
 		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * DEST_BPP;
 		const uint16_t v = ((uint16_t*)inData)[inPixelI];
 
-		convertedPixels[destPixelI]     = ((v >> 10) & 0x1ff) * RATIO_8_BIT_5_BIT; // R
-		convertedPixels[destPixelI + 1] = ((v >> 5) & 0x1ff)  * RATIO_8_BIT_5_BIT; // G
-		convertedPixels[destPixelI + 2] = (v & 0x1ff)         * RATIO_8_BIT_5_BIT; // B
-		convertedPixels[destPixelI + 3] = 255*(v >> 15);                           // A
+		convertedPixels[destPixelI]     = ((v >> 10) & 0x1f) * RATIO_8_BIT_5_BIT; // R
+		convertedPixels[destPixelI + 1] = ((v >> 5) & 0x1f)  * RATIO_8_BIT_5_BIT; // G
+		convertedPixels[destPixelI + 2] = (v & 0x1f)         * RATIO_8_BIT_5_BIT; // B
+		convertedPixels[destPixelI + 3] = 255*(v >> 15);                          // A
+	}
+
+	return convertedPixels;
+}
+
+// Converts to RGB GL_UNSIGNED_BYTE
+static inline GLvoid* _convertRGBUShort565(const GLvoid* inData, GLsizei* ioWidth,
+												GLsizei* ioHeight, bool forcePO2)
+{
+	const unsigned DEST_BPP = 3;
+
+	const unsigned origWidth = *ioWidth;
+	const unsigned origHeight = *ioHeight;
+	const unsigned origSize = origWidth * origHeight;
+	const unsigned unpackRowLength
+		= pglState->unpackRowLength == 0 ? origWidth : pglState->unpackRowLength;
+
+	if(forcePO2)
+	{
+		// Make sure we have power-of-2
+		*ioWidth = _getNextPO2(*ioWidth);
+		*ioHeight = _getNextPO2(*ioHeight);
+	}
+
+	const unsigned rightPadding = *ioWidth - origWidth;
+
+	const unsigned newSize = *ioWidth * *ioHeight * DEST_BPP;
+	unsigned char* convertedPixels = malloc(newSize);
+	const int RATIO_8_BIT_5_BIT = 255 / 31;
+	const int RATIO_8_BIT_6_BIT = 255 / 63;
+
+	for(unsigned i = 0; i < origSize; ++i)
+	{
+		const unsigned numSkipPixelsPerRow = unpackRowLength - origWidth;
+		const unsigned inRow = i / origWidth;
+		const unsigned inPixelI = i + numSkipPixelsPerRow * inRow;
+		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * DEST_BPP;
+		const uint16_t v = ((uint16_t*)inData)[inPixelI];
+
+		convertedPixels[destPixelI]     = ((v >> 11) & 0x1f) * RATIO_8_BIT_5_BIT; // R
+		convertedPixels[destPixelI + 1] = ((v >> 5)  & 0x2f) * RATIO_8_BIT_6_BIT; // G
+		convertedPixels[destPixelI + 2] = (v & 0x1f)         * RATIO_8_BIT_5_BIT; // B
+	}
+
+	return convertedPixels;
+}
+
+// Converts to RGBA GL_UNSIGNED_BYTE
+static inline GLvoid* _convertRGBUShort5551(const GLvoid* inData, GLsizei* ioWidth,
+												GLsizei* ioHeight, bool forcePO2)
+{
+	const unsigned DEST_BPP = 4;
+
+	const unsigned origWidth = *ioWidth;
+	const unsigned origHeight = *ioHeight;
+	const unsigned origSize = origWidth * origHeight;
+	const unsigned unpackRowLength
+		= pglState->unpackRowLength == 0 ? origWidth : pglState->unpackRowLength;
+
+	if(forcePO2)
+	{
+		// Make sure we have power-of-2
+		*ioWidth = _getNextPO2(*ioWidth);
+		*ioHeight = _getNextPO2(*ioHeight);
+	}
+
+	const unsigned rightPadding = *ioWidth - origWidth;
+
+	const unsigned newSize = *ioWidth * *ioHeight * DEST_BPP;
+	unsigned char* convertedPixels = malloc(newSize);
+	const int RATIO_8_BIT_5_BIT = 255 / 31;
+
+	for(unsigned i = 0; i < origSize; ++i)
+	{
+		const unsigned numSkipPixelsPerRow = unpackRowLength - origWidth;
+		const unsigned inRow = i / origWidth;
+		const unsigned inPixelI = i + numSkipPixelsPerRow * inRow;
+		const unsigned destPixelI = (i + (i / origWidth) * rightPadding) * DEST_BPP;
+		const uint16_t v = ((uint16_t*)inData)[inPixelI];
+
+		convertedPixels[destPixelI]     = ((v >> 11) & 0x1f) * RATIO_8_BIT_5_BIT; // R
+		convertedPixels[destPixelI + 1] = ((v >> 6) & 0x1f)  * RATIO_8_BIT_5_BIT; // G
+		convertedPixels[destPixelI + 2] = ((v >> 1) & 0x1f)  * RATIO_8_BIT_5_BIT; // B
+		convertedPixels[destPixelI + 3] = 255*(v & 1);                            // A
 	}
 
 	return convertedPixels;
@@ -246,7 +330,7 @@ static inline GLvoid* _handlePackingOnly(const GLvoid* inData, uint8_t inBpp, GL
 	return convertedPixels;
 }
 
-// Converts unsupported texture types into RGBA GL_UNSIGNED_BYTE.
+// Converts unsupported texture types into RGB/RGBA and GL_UNSIGNED_BYTE.
 // Also deals with GL_UNPACK_ROW_LENGTH.
 // If forcePO2 is true, will also add padding if the texture is not a
 // power of two.
@@ -254,44 +338,68 @@ static inline GLvoid* _handlePackingOnly(const GLvoid* inData, uint8_t inBpp, GL
 GLvoid* _normalizeTextureFormat(const GLvoid* inData, GLsizei* ioWidth, GLsizei* ioHeight,
 								GLenum* ioFormat, GLenum* ioType, bool forcePO2)
 {
+	bool converted = true;
+	int bpp = 0;
+
 	GLvoid* out = NULL;
 	switch(*ioFormat)
 	{
 		case GL_BGRA:
+			bpp = 4;
 			switch(*ioType)
 			{
 				case GL_UNSIGNED_INT_8_8_8_8_REV:
 					out = _convertBGRAUInt8888REV(inData, ioWidth, ioHeight, forcePO2);
 					*ioFormat = GL_RGBA;
-					*ioType = GL_UNSIGNED_BYTE;
 					break;
 				case GL_UNSIGNED_SHORT_1_5_5_5_REV:
 					out = _convertBGRAUShort1555REV(inData, ioWidth, ioHeight, forcePO2);
 					*ioFormat = GL_RGBA;
-					*ioType = GL_UNSIGNED_BYTE;
 					break;
 				default:
-					if(forcePO2 && !_isPO2(*ioWidth, *ioHeight))
-						out = _convertToPO2(inData, 4, ioWidth, ioHeight);
-					else if(pglState->unpackRowLength > 0)
-						out = _handlePackingOnly(inData, 4, *ioWidth, *ioHeight);
+					converted = false;
 					break;
 			}
 			break;
 		case GL_BGR:
-			if(forcePO2 && !_isPO2(*ioWidth, *ioHeight))
-				out = _convertToPO2(inData, 3, ioWidth, ioHeight);
-			else if(pglState->unpackRowLength > 0)
-				out = _handlePackingOnly(inData, 3, *ioWidth, *ioHeight);
+			bpp = 3;
+			converted = false;
 			break;
-		default:
-			if(forcePO2 && !_isPO2(*ioWidth, *ioHeight))
-				out = _convertToPO2(inData, 4, ioWidth, ioHeight);
-			else if(pglState->unpackRowLength > 0)
-				out = _handlePackingOnly(inData, 4, *ioWidth, *ioHeight);
+		case GL_RGB:
+			bpp = 3;
+			switch(*ioType)
+			{
+				case GL_UNSIGNED_SHORT_5_6_5:
+					out = _convertRGBUShort565(inData, ioWidth, ioHeight, forcePO2);
+					break;
+				default:
+					converted = false;
+					break;
+			}
+			break;
+		case GL_RGBA:
+			bpp = 4;
+			switch(*ioType)
+			{
+				case GL_UNSIGNED_SHORT_5_5_5_1:
+					out = _convertRGBUShort5551(inData, ioWidth, ioHeight, forcePO2);
+					break;
+				default:
+					converted = false;
+					break;
+			}
 			break;
 	}
 
+	if(!converted)
+	{
+		if(forcePO2 && !_isPO2(*ioWidth, *ioHeight))
+			out = _convertToPO2(inData, bpp, ioWidth, ioHeight);
+		else if(pglState->unpackRowLength > 0)
+			out = _handlePackingOnly(inData, bpp, *ioWidth, *ioHeight);
+	}
+
+	*ioType = GL_UNSIGNED_BYTE;
 	return out;
 }
 
@@ -464,7 +572,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 	GLsizei origWidth = width;
 	GLsizei origHeight = height;
 	GLvoid* normalizedData =
-		_normalizeTextureFormat(data, &width, &height, &format, &type, true);
+		data != NULL ? _normalizeTextureFormat(data, &width, &height, &format, &type, true) : NULL;
 
 	texture->format = _determineHardwareFormat(internalFormat);
 	texture->bpp 	= _determineBPP(texture->format);
@@ -495,7 +603,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
 	{
 		if(normalizedData)
 			_textureTile(texture, 0, 0, width, height, normalizedData, offset_bpp, readPixel, writePixel);
-		else
+		else if(data)
 			_textureTile(texture, 0, 0, width, height, data, offset_bpp, readPixel, writePixel);
 	}
 
